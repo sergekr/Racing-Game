@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mario Kart Lite - 1 Player</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #222; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        canvas { border: 2px solid #444; background: #0f0; }
+        #menu { position: absolute; color: white; font-family: Arial; text-align: center; top: 50%; transform: translateY(-50%); }
+        #menu h1 { font-size: 48px; margin-bottom: 20px; text-shadow: 0 0 10px #ff0; }
+        #menu button { background: #e74c3c; color: white; border: none; padding: 15px 30px; font-size: 24px; cursor: pointer; border-radius: 5px; }
+        #menu button:hover { background: #c0392b; }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+    <div id="menu">
+        <h1>MARIO KART LITE</h1>
+        <button id="startBtn">START GAME</button>
+    </div>
+
+    <script>
+        // Game Setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const menu = document.getElementById('menu');
+        const startBtn = document.getElementById('startBtn');
+
+        // Game State
+        let gameState = 'menu'; // 'menu', 'playing', 'gameOver'
+        let player = { x: 400, y: 450, width: 40, height: 20, speed: 0, acceleration: 0.2, friction: 0.05, jump: false };
+        let courses = [
+            { name: "Forest", walls: [{x: 100, y: 300, width: 600, height: 50}], powerUps: [{x: 300, y: 350, type: 'speed', active: false}] },
+            { name: "Desert", walls: [{x: 200, y: 250, width: 400, height: 50}], powerUps: [{x: 500, y: 300, type: 'shield', active: false}] },
+            { name: "City", walls: [{x: 150, y: 200, width: 500, height: 50}], powerUps: [{x: 200, y: 250, type: 'jump', active: false}] }
+        ];
+        let currentCourse = 0;
+        let powerUpActive = null;
+        let powerUpTimer = 0;
+
+        // Start Game
+        startBtn.addEventListener('click', () => {
+            gameState = 'playing';
+            menu.style.display = 'none';
+            player = { x: 400, y: 450, width: 40, height: 20, speed: 0, acceleration: 0.2, friction: 0.05, jump: false };
+            currentCourse = 0;
+            powerUpActive = null;
+            powerUpTimer = 0;
+        });
+
+        // Input Handling
+        const keys = {};
+        window.addEventListener('keydown', (e) => keys[e.key] = true);
+        window.addEventListener('keyup', (e) => keys[e.key] = false);
+
+        // Game Loop
+        function gameLoop() {
+            if (gameState !== 'playing') return;
+
+            // Clear Canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Course
+            drawCourse();
+            
+            // Draw Player
+            ctx.fillStyle = powerUpActive === 'jump' ? '#ff0' : '#e74c3c';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            
+            // Draw Power-Ups
+            courses[currentCourse].powerUps.forEach(pu => {
+                if (pu.active) {
+                    ctx.beginPath();
+                    ctx.arc(pu.x, pu.y, 15, 0, Math.PI * 2);
+                    ctx.fillStyle = pu.type === 'speed' ? '#3498db' : pu.type === 'shield' ? '#2ecc71' : '#f39c12';
+                    ctx.fill();
+                }
+            });
+
+            // Player Movement
+            if (keys['ArrowLeft'] || keys['a']) player.x -= player.speed;
+            if (keys['ArrowRight'] || keys['d']) player.x += player.speed;
+            if (keys['ArrowUp'] || keys['w']) player.speed += player.acceleration;
+            if (keys['ArrowDown'] || keys['s']) player.speed -= player.acceleration * 2;
+            player.speed *= (1 - player.friction);
+            
+            // Jump Power-Up
+            if (powerUpActive === 'jump' && (keys[' '] || keys[' '])) {
+                player.y -= 10;
+                powerUpTimer = 30; // 30 frames (0.5s at 60fps)
+            }
+            if (powerUpTimer > 0) {
+                powerUpTimer--;
+                if (powerUpTimer === 0) powerUpActive = null;
+            }
+
+            // Collision with Walls
+            courses[currentCourse].walls.forEach(wall => {
+                if (
+                    player.x < wall.x + wall.width &&
+                    player.x + player.width > wall.x &&
+                    player.y < wall.y + wall.height &&
+                    player.y + player.height > wall.y
+                ) {
+                    // Bounce off wall
+                    player.speed *= -0.5;
+                }
+            });
+
+            // Power-Up Collection
+            courses[currentCourse].powerUps.forEach((pu, i) => {
+                if (pu.active) return;
+                const dx = player.x + player.width/2 - pu.x;
+                const dy = player.y + player.height/2 - pu.y;
+                const distance = Math.sqrt(dx*dx + dy*dy);
+                if (distance < 25) {
+                    pu.active = true;
+                    powerUpActive = pu.type;
+                    powerUpTimer = 60; // 1 second
+                }
+            });
+
+            // Next Course
+            if (player.y < 100) {
+                currentCourse = (currentCourse + 1) % courses.length;
+                player.y = 450;
+            }
+
+            // Draw UI
+            ctx.fillStyle = 'white';
+            ctx.font = '20px Arial';
+            ctx.fillText(`Course: ${courses[currentCourse].name}`, 20, 30);
+            ctx.fillText(`Power-Up: ${powerUpActive || 'None'}`, 20, 55);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Draw Course
+        function drawCourse() {
+            ctx.fillStyle = '#333';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Track Background
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 200, canvas.width, 200);
+            
+            // Track Lines
+            ctx.strokeStyle = 'white';
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(0, 300);
+            ctx.lineTo(canvas.width, 300);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // Start Game Loop
+        gameLoop();
+    </script>
+</body>
+</html>
