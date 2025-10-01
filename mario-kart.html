@@ -167,7 +167,7 @@
         
         function updateOpponents() {
             opponents.forEach(opponent => {
-                // Simple AI: follow track
+                // Improved AI: follow track more realistically
                 const centerX = track.centerX;
                 const centerY = track.centerY;
                 const targetRadius = (track.innerRadius + track.outerRadius) / 2;
@@ -176,8 +176,16 @@
                 const dy = opponent.y - centerY;
                 const currentRadius = Math.sqrt(dx * dx + dy * dy);
                 
-                // Adjust angle to follow circular track
-                opponent.angle += 0.02;
+                // Adjust steering based on track position
+                const currentAngle = Math.atan2(dy, dx);
+                const targetAngle = currentAngle + 0.03; // Follow circular path
+                
+                // Simple steering toward optimal racing line
+                opponent.angle = targetAngle;
+                
+                // Vary speed slightly for more realistic racing
+                const baseSpeed = opponent.speed;
+                opponent.speed = baseSpeed + Math.sin(Date.now() * 0.001 + opponent.x * 0.01) * 0.5;
                 
                 // Move forward
                 opponent.x += Math.cos(opponent.angle) * opponent.speed;
@@ -185,6 +193,9 @@
                 
                 // Keep on track
                 enforceTrackBoundaries(opponent);
+                
+                // Collect item boxes (simple AI)
+                checkItemBoxCollection(opponent);
             });
         }
         
@@ -242,6 +253,8 @@
                 powerUpTimer--;
                 if (powerUpTimer === 0) {
                     powerUpActive = null;
+                    // Reset any temporary effects
+                    player.maxSpeed = 8;
                 }
             }
             
@@ -249,44 +262,66 @@
             if (powerUpActive && (keys[' '] || keys['Space'])) {
                 switch (powerUpActive) {
                     case 'mushroom':
-                        player.speed = Math.min(player.speed + 3, player.maxSpeed + 2);
+                        player.speed = Math.min(player.speed + 4, player.maxSpeed + 3);
+                        powerUpActive = null;
+                        powerUpTimer = 0;
                         break;
                     case 'star':
                         player.maxSpeed = 12;
+                        player.speed = Math.min(player.speed + 2, player.maxSpeed);
+                        powerUpTimer = 180; // 3 seconds
                         break;
                     case 'shell':
-                        // Simple shell effect - boost forward
-                        player.speed = Math.min(player.speed + 2, player.maxSpeed + 1);
+                        // Shell boost effect
+                        player.speed = Math.min(player.speed + 3, player.maxSpeed + 2);
+                        powerUpActive = null;
+                        powerUpTimer = 0;
                         break;
                     case 'banana':
-                        // Create temporary obstacle (simplified)
+                        // Banana gives slight speed boost (simplified)
+                        player.speed = Math.min(player.speed + 2, player.maxSpeed + 1);
+                        powerUpActive = null;
+                        powerUpTimer = 0;
                         break;
                 }
-                powerUpActive = null;
-                powerUpTimer = 0;
             }
             
-            // Reset max speed for star power-up
-            if (powerUpActive !== 'star') {
+            // Star power-up effect duration
+            if (powerUpActive === 'star' && powerUpTimer <= 0) {
+                powerUpActive = null;
                 player.maxSpeed = 8;
             }
         }
         
         function checkLapProgress() {
-            // Simple lap detection based on position relative to track center
-            const angle = Math.atan2(player.y - track.centerY, player.x - track.centerX);
-            const normalizedAngle = ((angle + Math.PI * 2) % (Math.PI * 2));
+            // Improved lap detection using start/finish line crossing
+            const finishLineX = track.centerX;
+            const finishLineY = track.centerY - track.outerRadius - 10;
             
-            // Check if player completed a lap (simplified)
-            if (normalizedAngle < 0.5 && player.position > Math.PI * 1.5) {
-                currentLap++;
-                if (currentLap > totalLaps) {
-                    gameState = 'gameOver';
-                    menu.style.display = 'block';
-                    menu.innerHTML = '<h1>RACE COMPLETE!</h1><button onclick="location.reload()">PLAY AGAIN</button>';
+            // Check if player is near the finish line
+            const distanceToFinishLine = Math.abs(player.x - finishLineX);
+            const isAtFinishLineY = player.y >= finishLineY - 20 && player.y <= finishLineY + 20;
+            
+            // Simple lap completion detection
+            if (distanceToFinishLine < 30 && isAtFinishLineY && player.speed > 1) {
+                // Check if player has moved around the track (simple check)
+                const currentAngle = Math.atan2(player.y - track.centerY, player.x - track.centerX);
+                const normalizedAngle = ((currentAngle + Math.PI * 2) % (Math.PI * 2));
+                
+                // If player was previously on the other side of the track and now at finish line
+                if (player.position > Math.PI && normalizedAngle < Math.PI/2) {
+                    currentLap++;
+                    if (currentLap > totalLaps) {
+                        gameState = 'gameOver';
+                        menu.style.display = 'block';
+                        menu.innerHTML = '<h1>RACE COMPLETE!</h1><button onclick="location.reload()">PLAY AGAIN</button>';
+                    }
                 }
             }
-            player.position = normalizedAngle;
+            
+            // Update position for next check
+            const angle = Math.atan2(player.y - track.centerY, player.x - track.centerX);
+            player.position = ((angle + Math.PI * 2) % (Math.PI * 2));
         }
 
         // Drawing functions
