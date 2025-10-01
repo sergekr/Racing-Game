@@ -446,6 +446,58 @@
             ctx.font = '14px Arial';
             ctx.fillText('WASD or Arrow Keys to drive', canvas.width - 200, canvas.height - 40);
             ctx.fillText('SPACE to use power-up', canvas.width - 200, canvas.height - 20);
+            
+            // Minimap
+            drawMinimap();
+        }
+        
+        function drawMinimap() {
+            const minimapX = canvas.width - 120;
+            const minimapY = 80;
+            const minimapSize = 80;
+            const scale = minimapSize / (track.outerRadius * 2.2);
+            
+            // Minimap background
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(minimapX - 5, minimapY - 5, minimapSize + 10, minimapSize + 10);
+            
+            // Minimap track
+            ctx.fillStyle = '#228B22';
+            ctx.fillRect(minimapX, minimapY, minimapSize, minimapSize);
+            
+            // Track outline
+            ctx.strokeStyle = '#8B4513';
+            ctx.lineWidth = 2;
+            const centerX = minimapX + minimapSize / 2;
+            const centerY = minimapY + minimapSize / 2;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, track.outerRadius * scale, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, track.innerRadius * scale, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Player on minimap
+            const playerMapX = centerX + (player.x - track.centerX) * scale;
+            const playerMapY = centerY + (player.y - track.centerY) * scale;
+            ctx.fillStyle = '#e74c3c';
+            ctx.fillRect(playerMapX - 2, playerMapY - 2, 4, 4);
+            
+            // Opponents on minimap
+            opponents.forEach(opponent => {
+                const oppMapX = centerX + (opponent.x - track.centerX) * scale;
+                const oppMapY = centerY + (opponent.y - track.centerY) * scale;
+                ctx.fillStyle = opponent.color;
+                ctx.fillRect(oppMapX - 1, oppMapY - 1, 2, 2);
+            });
+            
+            // Minimap title
+            ctx.fillStyle = 'white';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('MAP', centerX, minimapY - 10);
+            ctx.textAlign = 'left';
         }
 
         // Start Game Loop
